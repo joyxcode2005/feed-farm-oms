@@ -13,4 +13,225 @@ datasource db {
   provider = "postgresql"
 }
 
+// -------------------------------------------------------
+//  ENUMS
+// -------------------------------------------------------
 
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  DISPATCHED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  CREDIT
+  ONLINE
+}
+
+enum DiscountType {
+  FLAT
+  PERCENTAGE
+}
+
+enum StockTransactionType {
+  IN
+  OUT
+  ADJUSTMENT
+}
+
+enum FinishedStockTxnType {
+  PRODUCTION_IN
+  SALE_OUT
+  ADJUSTMENT
+}
+
+// -------------------------------------------------------
+//  MODELS
+// -------------------------------------------------------
+
+model Customer {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String   @unique
+  address   String?
+  orders    Order[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AdminUser {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  phone        String?
+  role         String
+  passwordHash String
+  orders       Order[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model FeedType {
+  id          Int           @id @default(autoincrement())
+  name        String
+  description String?
+  products    FeedProduct[]
+}
+
+model FeedProduct {
+  id           Int      @id @default(autoincrement())
+  feedTypeId   Int
+  name         String
+  unit         String
+  unitSize     Int
+  pricePerUnit Float
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  feedType   FeedType                       @relation(fields: [feedTypeId], references: [id])
+  orderItems OrderItem[]
+  batches    ProductionBatch[]
+  stock      FinishedFeedStock?
+  stockTxns  FinishedFeedStockTransaction[]
+}
+
+model Order {
+  id            Int           @id @default(autoincrement())
+  customerId    Int
+  adminUserId   Int
+  orderStatus   OrderStatus   @default(PENDING)
+  paymentMethod PaymentMethod
+  totalAmount   Float
+  discountType  DiscountType?
+  discountValue Float?
+  finalAmount   Float
+  deliveryDate  DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  customer  Customer                       @relation(fields: [customerId], references: [id])
+  adminUser AdminUser                      @relation(fields: [adminUserId], references: [id])
+  items     OrderItem[]
+  payments  Payment[]
+  stockTxns FinishedFeedStockTransaction[]
+}
+
+model OrderItem {
+  id            Int      @id @default(autoincrement())
+  orderId       Int
+  feedProductId Int
+  quantity      Int
+  pricePerUnit  Float
+  subtotal      Float
+  createdAt     DateTime @default(now())
+
+  order       Order       @relation(fields: [orderId], references: [id])
+  feedProduct FeedProduct @relation(fields: [feedProductId], references: [id])
+}
+
+// -------------------------------------------------------
+//  PAYMENTS + EXPENSES
+// -------------------------------------------------------
+
+model Payment {
+  id            Int           @id @default(autoincrement())
+  orderId       Int
+  amountPaid    Float
+  paymentDate   DateTime      @default(now())
+  paymentMethod PaymentMethod
+
+  order Order @relation(fields: [orderId], references: [id])
+}
+
+model Expense {
+  id          Int      @id @default(autoincrement())
+  category    String
+  amount      Float
+  note        String?
+  expenseDate DateTime
+  createdAt   DateTime @default(now())
+}
+
+// -------------------------------------------------------
+//  RAW MATERIAL TRACKING
+// -------------------------------------------------------
+
+model RawMaterial {
+  id        Int      @id @default(autoincrement())
+  name      String
+  unit      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stockTxns RawMaterialStockTransaction[]
+  batchUses ProductionBatchMaterial[]
+}
+
+model RawMaterialStockTransaction {
+  id            Int                  @id @default(autoincrement())
+  rawMaterialId Int
+  type          StockTransactionType
+  quantity      Float
+  referenceType String?
+  referenceId   Int?
+  createdAt     DateTime             @default(now())
+
+  rawMaterial RawMaterial @relation(fields: [rawMaterialId], references: [id])
+}
+
+// -------------------------------------------------------
+//  FINISHED FEED STOCK
+// -------------------------------------------------------
+
+model FinishedFeedStock {
+  id                Int      @id @default(autoincrement())
+  feedProductId     Int      @unique
+  quantityAvailable Float
+  updatedAt         DateTime @updatedAt
+
+  feedProduct FeedProduct @relation(fields: [feedProductId], references: [id])
+}
+
+model FinishedFeedStockTransaction {
+  id                Int                  @id @default(autoincrement())
+  feedProductId     Int
+  type              FinishedStockTxnType
+  quantity          Float
+  orderId           Int?
+  productionBatchId Int?
+  createdAt         DateTime             @default(now())
+
+  feedProduct     FeedProduct      @relation(fields: [feedProductId], references: [id])
+  order           Order?           @relation(fields: [orderId], references: [id])
+  productionBatch ProductionBatch? @relation(fields: [productionBatchId], references: [id])
+}
+
+// -------------------------------------------------------
+//  PRODUCTION
+// -------------------------------------------------------
+
+model ProductionBatch {
+  id               Int      @id @default(autoincrement())
+  feedProductId    Int
+  batchNumber      String
+  producedQuantity Float
+  productionDate   DateTime
+  createdAt        DateTime @default(now())
+
+  feedProduct FeedProduct                    @relation(fields: [feedProductId], references: [id])
+  materials   ProductionBatchMaterial[]
+  stockTxns   FinishedFeedStockTransaction[]
+}
+
+model ProductionBatchMaterial {
+  id            Int   @id @default(autoincrement())
+  batchId       Int
+  rawMaterialId Int
+  quantityUsed  Float
+
+  batch       ProductionBatch @relation(fields: [batchId], references: [id])
+  rawMaterial RawMaterial     @relation(fields: [rawMaterialId], references: [id])
+}
