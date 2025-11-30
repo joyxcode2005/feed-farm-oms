@@ -1,6 +1,8 @@
 import dotenv from "dotenv";
 dotenv.config();
 import express, {} from "express";
+import cors from "cors";
+import authRouter from "./router/auth.router.js";
 const PORT = process.env.PORT || 8080;
 const app = express();
 app.get("/health", (req, res) => {
@@ -8,6 +10,12 @@ app.get("/health", (req, res) => {
         message: "Server is healthy!!!",
     });
 });
+//middlewares
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cors());
+//Routers
+app.use("/api/v1/auth", authRouter);
 app.listen(PORT, () => {
     console.log(`Server is listening on port ${PORT}`);
 });

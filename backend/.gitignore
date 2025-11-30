@@ -5,3 +5,6 @@ node_modules
 /src/generated/prisma
 
 /prisma/migrations
+
+/dist
+/src/generated/prisma
