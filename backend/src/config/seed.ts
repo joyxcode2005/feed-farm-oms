@@ -4,10 +4,10 @@ import { prisma } from "./prisma.js";
 async function main() {
   console.log("🌱 Seeding database...");
 
-  const email = "joysengupta252005@gmail.com";
-  const password = "joy@123";
-  const name = "Joy Sengupta";
-  const phone = "8777699459";
+  const email = "ayushkirtania@gmail.com";
+  const password = "ayush@123";
+  const name = "Ayush Kirtania";
+  const phone = "9836763794";
 
   const hashed = await bcrypt.hash(password, 10);
 
