@@ -5,7 +5,7 @@ export const adminLoginSchema = z.object({
   password: z.string(),
 });
 
-export const feedProductScheam = z.object({
+export const feedProductSchema = z.object({
   animalType: z.enum(["PIG", "CATTLE"]),
   feedType: z.enum(["STARTER", "GROWER", "FINISHER", "GESTATION", "LACTATING"]),
   name: z.string().min(1),
@@ -13,3 +13,5 @@ export const feedProductScheam = z.object({
   unitSize: z.number().int().positive(),
   pricePerUnit: z.number().positive(),
 });
+
+

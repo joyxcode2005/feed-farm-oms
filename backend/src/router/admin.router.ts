@@ -1,17 +1,14 @@
 import { Router, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { adminLoginSchema, feedProductScheam } from "../config/schema.js";
+import { adminLoginSchema } from "../config/schema.js";
 import {
   checkExistingAdmin,
   getUserData,
 } from "../controller/auth.controller.js";
 import { adminMiddleware } from "../middlewares/admin.middleware.js";
 import orderRouter from "./order.router.js";
-import {
-  createFeedProduct,
-  existingFeedProduct,
-} from "../controller/feed.controller.js";
+import feedRouter from "./feed.router.js";
 
 const router = Router();
 
@@ -120,60 +117,7 @@ router.get("/info", async (req: Request, res: Response) => {
   }
 });
 
-// create feedProduct
-router.post("/feed-product", async (req: Request, res: Response) => {
-  const { success, error, data } = feedProductScheam.safeParse(req.body);
-
-  if (!success)
-    return res.status(400).json({
-      success: false,
-      message: "Invalid Input!!!",
-      errors: error.flatten(),
-    });
-
-  try {
-    const { animalType, feedType, name, unit, unitSize, pricePerUnit } = data;
-
-    const existingProduct = await existingFeedProduct({
-      name,
-      animalType,
-      feedType,
-    });
-
-    if (existingProduct)
-      return res.status(409).json({
-        success: false,
-        message: "A feed product with these details already exists.",
-      });
-
-    const feedProduct = await createFeedProduct({
-      animalType,
-      feedType,
-      name,
-      unit,
-      unitSize,
-      pricePerUnit,
-    });
-
-    if (!feedProduct)
-      return res.status(400).json({
-        success: false,
-        message: "Failed to create product!!",
-      });
-
-    return res.status(201).json({
-      success: true,
-      message: "Feed product created successfully.",
-      data: feedProduct,
-    });
-  } catch (error) {
-    console.error("Feed product creation error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-    });
-  }
-}); 
+router.use("/feed", feedRouter);
 
 // Order realted router
 router.use("/order", orderRouter);
