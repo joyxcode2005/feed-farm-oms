@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { adminLoginSchema, feedProductInput } from "../config/schema.js";
+import { adminLoginSchema, feedProductScheam } from "../config/schema.js";
 import {
   checkExistingAdmin,
   getUserData,
@@ -122,7 +122,7 @@ router.get("/info", async (req: Request, res: Response) => {
 
 // create feedProduct
 router.post("/feed-product", async (req: Request, res: Response) => {
-  const { success, error, data } = feedProductInput.safeParse(req.body);
+  const { success, error, data } = feedProductScheam.safeParse(req.body);
 
   if (!success)
     return res.status(400).json({
@@ -173,7 +173,7 @@ router.post("/feed-product", async (req: Request, res: Response) => {
       message: "Internal Server Error",
     });
   }
-});
+}); 
 
 // Order realted router
 router.use("/order", orderRouter);
