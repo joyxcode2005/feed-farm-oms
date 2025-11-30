@@ -54,3 +54,29 @@ export const existingFeedProduct = async ({
     },
   });
 };
+
+
+export const updateFeedUnitSize = async (id: string, unitSize: number) => {
+  try {
+    const updated = await prisma.feedProduct.update({
+      where: { id},
+      data: { unitSize },
+    });
+    return updated;  } catch (err) {
+    return null; // order not found OR prisma error
+  }
+};
+
+export const getAllFeedProduct = async () => {
+  return await prisma.feedProduct.findMany({
+    select : {
+        id: true,
+        animalType: true,
+        feedType: true,
+        name: true,
+        unit: true,
+        unitSize: true,
+        pricePerUnit: true,
+    }
+  })
+}
