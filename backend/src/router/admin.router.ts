@@ -6,7 +6,7 @@ import {
   checkExistingAdmin,
   getUserData,
 } from "../controller/auth.controller.js";
-import { userMiddleware } from "../middlewares/admin.middleware.js";
+import { adminMiddleware } from "../middlewares/admin.middleware.js";
 
 const router = Router();
 
@@ -76,7 +76,7 @@ router.post("/login", async (req: Request, res: Response) => {
   }
 });
 
-router.use(userMiddleware);
+router.use(adminMiddleware);
 
 // Get admin info
 router.get("/info", async (req: Request, res: Response) => {
@@ -114,5 +114,7 @@ router.get("/info", async (req: Request, res: Response) => {
     });
   }
 });
+
+
 
 export default router;
