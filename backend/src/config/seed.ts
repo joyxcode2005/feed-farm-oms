@@ -1,13 +1,13 @@
 import bcrypt from "bcryptjs";
-import  { prisma } from "./prisma.js";
-
+import { prisma } from "./prisma.js";
 
 async function main() {
   console.log("🌱 Seeding database...");
 
-  const email = "admin@example.com";
-  const password = "admin123";
-  const name = "Default Admin";
+  const email = "joysengupta252005@gmail.com";
+  const password = "joy@123";
+  const name = "Joy Sengupta";
+  const phone = "8777699459";
 
   const hashed = await bcrypt.hash(password, 10);
 
@@ -19,6 +19,7 @@ async function main() {
       passwordHash: hashed,
       name,
       role: "admin",
+      phone,
     },
   });
 

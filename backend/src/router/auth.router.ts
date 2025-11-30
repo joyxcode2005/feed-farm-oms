@@ -2,8 +2,11 @@ import { Router, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { adminLoginSchema } from "../config/schema.js";
-import { checkExistingAdmin } from "../controller/auth.controller.js";
-
+import {
+  checkExistingAdmin,
+  getUserData,
+} from "../controller/auth.controller.js";
+import { userMiddleware } from "../middlewares/admin.middleware.js";
 
 const router = Router();
 
@@ -63,10 +66,48 @@ router.post("/login", async (req: Request, res: Response) => {
       success: true,
       message: "Admin Login Successfull!!",
     });
-    
   } catch (error) {
     console.log("Error: ", error);
 
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error!!",
+    });
+  }
+});
+
+router.use(userMiddleware);
+
+// Get admin info
+router.get("/info", async (req: Request, res: Response) => {
+  const admin = (req as any).admin;
+
+  if (!admin)
+    return res.status(500).json({
+      success: false,
+      message: "User data missing from request",
+    });
+
+  try {
+    const userData = await getUserData(admin.email);
+
+    if (!userData)
+      return res.status(404).json({
+        success: false,
+        message: "Admin not found!!",
+      });
+
+    return res.status(200).json({
+      success: true,
+      message: "Admin info fetched successfully",
+      data: {
+        email: userData.email,
+        name: userData.name,
+        phone: userData.phone,
+        role: userData.role,
+      },
+    });
+  } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error!!",

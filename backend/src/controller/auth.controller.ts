@@ -5,3 +5,9 @@ export const checkExistingAdmin = async (email: string) => {
     where: { email },
   });
 };
+
+export const getUserData = async (email: string) => {
+  return await prisma.adminUser.findFirst({
+    where: { email },
+  });
+};
