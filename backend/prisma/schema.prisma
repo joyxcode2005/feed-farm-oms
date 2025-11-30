@@ -9,12 +9,22 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")  // Add this line!
+  url      = env("DATABASE_URL") // Add this line!
 }
 
-// -------------------------------------------------------
-//  ENUMS
-// -------------------------------------------------------
+/// ENUMS remain the same
+enum AnimalType {
+  PIG
+  CATTLE
+}
+
+enum FeedCategory {
+  STARTER
+  GROWER
+  FINISHER
+  GESTATION
+  LACTATING
+}
 
 enum OrderStatus {
   PENDING
@@ -47,12 +57,10 @@ enum FinishedStockTxnType {
   ADJUSTMENT
 }
 
-// -------------------------------------------------------
-//  MODELS
-// -------------------------------------------------------
+// --------------------- MODELS WITH UUID IDs ------------------------
 
 model Customer {
-  id        Int      @id @default(autoincrement())
+  id        String   @id @default(uuid())
   name      String
   phone     String   @unique
   address   String?
@@ -62,7 +70,7 @@ model Customer {
 }
 
 model AdminUser {
-  id           Int      @id @default(autoincrement())
+  id           String   @id @default(uuid())
   name         String
   email        String   @unique
   phone        String?
@@ -73,34 +81,31 @@ model AdminUser {
   updatedAt    DateTime @updatedAt
 }
 
-model FeedType {
-  id          Int           @id @default(autoincrement())
-  name        String
-  description String?
-  products    FeedProduct[]
-}
+// ----------------- FEED PRODUCT -------------------
 
 model FeedProduct {
-  id           Int      @id @default(autoincrement())
-  feedTypeId   Int
+  id           String       @id @default(uuid())
+  animalType   AnimalType
+  feedType     FeedCategory
   name         String
   unit         String
   unitSize     Int
   pricePerUnit Float
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
-  feedType   FeedType                       @relation(fields: [feedTypeId], references: [id])
   orderItems OrderItem[]
   batches    ProductionBatch[]
   stock      FinishedFeedStock?
   stockTxns  FinishedFeedStockTransaction[]
 }
 
+// ----------------------- ORDER ------------------------
+
 model Order {
-  id            Int           @id @default(autoincrement())
-  customerId    Int
-  adminUserId   Int
+  id            String        @id @default(uuid())
+  customerId    String
+  adminUserId   String
   orderStatus   OrderStatus   @default(PENDING)
   paymentMethod PaymentMethod
   totalAmount   Float
@@ -119,9 +124,9 @@ model Order {
 }
 
 model OrderItem {
-  id            Int      @id @default(autoincrement())
-  orderId       Int
-  feedProductId Int
+  id            String   @id @default(uuid())
+  orderId       String
+  feedProductId String
   quantity      Int
   pricePerUnit  Float
   subtotal      Float
@@ -131,13 +136,11 @@ model OrderItem {
   feedProduct FeedProduct @relation(fields: [feedProductId], references: [id])
 }
 
-// -------------------------------------------------------
-//  PAYMENTS + EXPENSES
-// -------------------------------------------------------
+// ------------------ PAYMENTS ------------------
 
 model Payment {
-  id            Int           @id @default(autoincrement())
-  orderId       Int
+  id            String        @id @default(uuid())
+  orderId       String
   amountPaid    Float
   paymentDate   DateTime      @default(now())
   paymentMethod PaymentMethod
@@ -146,7 +149,7 @@ model Payment {
 }
 
 model Expense {
-  id          Int      @id @default(autoincrement())
+  id          String   @id @default(uuid())
   category    String
   amount      Float
   note        String?
@@ -154,12 +157,10 @@ model Expense {
   createdAt   DateTime @default(now())
 }
 
-// -------------------------------------------------------
-//  RAW MATERIAL TRACKING
-// -------------------------------------------------------
+// ------------------ RAW MATERIAL --------------------
 
 model RawMaterial {
-  id        Int      @id @default(autoincrement())
+  id        String   @id @default(uuid())
   name      String
   unit      String
   createdAt DateTime @default(now())
@@ -170,24 +171,22 @@ model RawMaterial {
 }
 
 model RawMaterialStockTransaction {
-  id            Int                  @id @default(autoincrement())
-  rawMaterialId Int
+  id            String               @id @default(uuid())
+  rawMaterialId String
   type          StockTransactionType
   quantity      Float
   referenceType String?
-  referenceId   Int?
+  referenceId   String?
   createdAt     DateTime             @default(now())
 
   rawMaterial RawMaterial @relation(fields: [rawMaterialId], references: [id])
 }
 
-// -------------------------------------------------------
-//  FINISHED FEED STOCK
-// -------------------------------------------------------
+// --------------- FINISHED FEED STOCK ---------------
 
 model FinishedFeedStock {
-  id                Int      @id @default(autoincrement())
-  feedProductId     Int      @unique
+  id                String   @id @default(uuid())
+  feedProductId     String   @unique
   quantityAvailable Float
   updatedAt         DateTime @updatedAt
 
@@ -195,12 +194,12 @@ model FinishedFeedStock {
 }
 
 model FinishedFeedStockTransaction {
-  id                Int                  @id @default(autoincrement())
-  feedProductId     Int
+  id                String               @id @default(uuid())
+  feedProductId     String
   type              FinishedStockTxnType
   quantity          Float
-  orderId           Int?
-  productionBatchId Int?
+  orderId           String?
+  productionBatchId String?
   createdAt         DateTime             @default(now())
 
   feedProduct     FeedProduct      @relation(fields: [feedProductId], references: [id])
@@ -208,13 +207,11 @@ model FinishedFeedStockTransaction {
   productionBatch ProductionBatch? @relation(fields: [productionBatchId], references: [id])
 }
 
-// -------------------------------------------------------
-//  PRODUCTION
-// -------------------------------------------------------
+// ------------------- PRODUCTION ------------------------
 
 model ProductionBatch {
-  id               Int      @id @default(autoincrement())
-  feedProductId    Int
+  id               String   @id @default(uuid())
+  feedProductId    String
   batchNumber      String
   producedQuantity Float
   productionDate   DateTime
@@ -226,9 +223,9 @@ model ProductionBatch {
 }
 
 model ProductionBatchMaterial {
-  id            Int   @id @default(autoincrement())
-  batchId       Int
-  rawMaterialId Int
+  id            String @id @default(uuid())
+  batchId       String
+  rawMaterialId String
   quantityUsed  Float
 
   batch       ProductionBatch @relation(fields: [batchId], references: [id])

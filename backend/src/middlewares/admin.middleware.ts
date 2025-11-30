@@ -12,7 +12,6 @@ export const adminMiddleware = (
 ) => {
   const token = req.cookies?.token;
 
-  console.log("Token: ", token);
 
   if (!token) {
     return res.status(401).json({
