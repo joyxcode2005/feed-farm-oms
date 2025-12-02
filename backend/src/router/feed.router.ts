@@ -6,7 +6,6 @@ import {
   getAllFeedProduct,
   updateFeedUnitSize,
 } from "../controller/feed.controller.js";
-import { success } from "zod";
 
 const router = Router();
 
@@ -135,5 +134,7 @@ router.get("/bulk", async (req: Request, res: Response) => {
     });
   }
 });
+
+
 
 export default router;

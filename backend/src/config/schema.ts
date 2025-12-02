@@ -1,4 +1,5 @@
-import z from "zod";
+import { DiscountType, PaymentMethod } from "@prisma/client";
+import z, { number, string } from "zod";
 
 export const adminLoginSchema = z.object({
   email: z.email(),
@@ -14,4 +15,23 @@ export const feedProductSchema = z.object({
   pricePerUnit: z.number().positive(),
 });
 
+export const checkCustomerDataSchema = z.object({
+  name: z.string(),
+  phone: z.string().max(10),
+  address: z.string(),
+});
 
+const orderItemSchema = z.object({
+  feedProductId: z.string(),
+  quantity: z.number().min(1, "Quantity must be at least 1"),
+});
+
+export const placeOrderSchema = z.object({
+  paymentMethod: z.enum(["CASH", "CREDIT", "ONLINE"]),
+  discountType: z.enum(["FLAT", "PERCENTAGE"]).optional(),
+  discountValue: z.number().optional(),
+  deliveryDate: z.string().nullable().optional(),
+  items: z
+    .array(orderItemSchema)
+    .min(1, "Order must include at least one item"),
+});

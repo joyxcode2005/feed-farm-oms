@@ -24,6 +24,7 @@ export const adminMiddleware = (
   try {
     const decoded = jwt.verify(token, JWT_SECRET as string);
 
+    
     (req as any).admin = decoded;
 
     next();

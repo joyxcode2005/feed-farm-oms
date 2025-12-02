@@ -49,7 +49,7 @@ router.post("/login", async (req: Request, res: Response) => {
         message: "Invalid credentials!!!",
       });
 
-    const token = jwt.sign({ email }, JWT_SECRET, { expiresIn: "1d" });
+    const token = jwt.sign({ email, id: existingAdmin.id }, JWT_SECRET, { expiresIn: "1d" });
 
     if (!token)
       return res.status(500).json({
@@ -117,6 +117,7 @@ router.get("/info", async (req: Request, res: Response) => {
   }
 });
 
+// Feed realted router
 router.use("/feed", feedRouter);
 
 // Order realted router
