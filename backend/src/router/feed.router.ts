@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { feedProductSchema } from "../config/schema.js";
 import {
   createFeedProduct,
+  createInitialFinishedStock,
   existingFeedProduct,
   getAllFeedProduct,
   updateFeedUnitSize,
@@ -49,6 +50,9 @@ router.post("/create-feed", async (req: Request, res: Response) => {
         success: false,
         message: "Failed to create product!!",
       });
+
+      await createInitialFinishedStock(feedProduct.id, feedProduct.unitSize);
+
 
     return res.status(201).json({
       success: true,

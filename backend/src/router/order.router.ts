@@ -12,6 +12,7 @@ import {
 import jwt from "jsonwebtoken";
 import { orderMiddleware } from "../middlewares/order.middleware.js";
 
+
 const router = Router();
 
 const CUSTOMER_JWT_SECRET = process.env.CUSTOMER_JWT_SECRET || "";
@@ -85,6 +86,7 @@ router.post("/check-customer-data", async (req: Request, res: Response) => {
       message: "Customer data added succesfully!!!",
     });
   } catch (error) {
+    console.log(error)
     return res.status(500).json({
       success: false,
       message: "Internal Server Error!!",
@@ -102,15 +104,15 @@ router.post("/place-order", async (req: Request, res: Response) => {
 
     const { success, error, data } = placeOrderSchema.safeParse(req.body);
 
-    if (!success)
+    if (!success) {
       return res.status(401).json({
         success: false,
         message: "Invalid Input!!",
         error: error.flatten(),
       });
+    }
 
     try {
-      // Destructure schema-validated data
       const {
         paymentMethod,
         discountType,
@@ -119,77 +121,44 @@ router.post("/place-order", async (req: Request, res: Response) => {
         items,
       } = data;
 
-      // Fetch product pricing
-      const feedProductIds = items.map((i) => i.feedProductId);
-      const feedProducts = await fetchAllfeedProducts(feedProductIds);
-
-      if (feedProducts.length !== items.length) {
-        return res.status(400).json({
-          success: false,
-          message: "One or more feedProductId are invalid",
-        });
-      }
-
-      // Prepare price lookup
-      const priceMap = new Map(feedProducts.map((p) => [p.id, p.pricePerUnit]));
-
-      let totalAmount = 0;
-
-      // Build `orderItemsData`
-      const orderItemsData = items.map((item) => {
-        const price = priceMap.get(item.feedProductId);
-
-        if (!price) {
-          throw new Error(`Invalid feedProductId: ${item.feedProductId}`);
-        }
-
-        if (item.quantity <= 0) {
-          throw new Error(`Invalid quantity for product ${item.feedProductId}`);
-        }
-
-        const subtotal = price * item.quantity;
-        totalAmount += subtotal;
-
-        return {
-          feedProductId: item.feedProductId,
-          quantity: item.quantity,
-          pricePerUnit: price,
-          subtotal,
-        };
+      // 🔁 reuse calculation
+      const summary = await calculateOrderPreview({
+        items: items.map((i) => ({
+          feedProductId: i.feedProductId,
+          quantity: i.quantity,
+        })),
+        discountType: discountType ?? null,
+        discountValue: discountValue ?? 0,
       });
 
-      // Compute finalAmount after discount
-      let finalAmount = totalAmount;
+      const cleanedOrderItems = summary.items.map(i => ({
+  feedProductId: i.feedProductId,
+  quantity: i.quantity,
+  pricePerUnit: i.pricePerUnit,
+  subtotal: i.subtotal,
+}));
 
-      if (discountType && discountValue) {
-        if (discountType === "FLAT") {
-          finalAmount -= discountValue;
-        } else if (discountType === "PERCENTAGE") {
-          finalAmount -= totalAmount * (discountValue / 100);
-        }
-      }
+const totalAmount = summary.totalAmount;
+const finalAmount = summary.finalAmount;
 
-      if (finalAmount < 0) finalAmount = 0;
 
       // ---- CREATE ORDER ----
       const order = await placeOrder(
-        customerId,
-        adminUserId,
-        paymentMethod,
-        discountType ?? null,
-        discountValue || 0,
-        totalAmount,
-        finalAmount,
-        deliveryDate ?? null,
-        orderItemsData
-      );
+  customerId,
+  adminUserId,
+  paymentMethod,
+  discountType ?? null,
+  discountValue || 0,
+  totalAmount,
+  finalAmount,
+  deliveryDate ?? null,
+  cleanedOrderItems
+);
 
 
-      // ---- DEDUCT STOCK + CREATE STOCK TXN ----
+      // ---- STOCK HANDLING ----
       for (const item of order.items) {
         const stock = await findExistingFeedStock(item.feedProductId);
-
-        console.log("Stock: ", stock);
 
         if (!stock || stock.quantityAvailable < item.quantity) {
           return res.status(400).json({
@@ -198,7 +167,7 @@ router.post("/place-order", async (req: Request, res: Response) => {
           });
         }
 
-        // Create SALE_OUT transaction
+
         await createFeedStockTxn(
           item.feedProductId,
           "SALE_OUT",
@@ -206,7 +175,6 @@ router.post("/place-order", async (req: Request, res: Response) => {
           order.id
         );
 
-        // Deduct stock (your helper should handle decrement)
         await updateFinishedStock(item.feedProductId, item.quantity);
       }
 
@@ -217,7 +185,6 @@ router.post("/place-order", async (req: Request, res: Response) => {
       });
     } catch (error: any) {
       console.error("Order Error:", error);
-
       return res.status(500).json({
         success: false,
         message: "Internal Server Error!!",
@@ -226,12 +193,60 @@ router.post("/place-order", async (req: Request, res: Response) => {
     }
   } catch (error) {
     console.error("Outer Error:", error);
-
     return res.status(500).json({
       success: false,
       message: "Internal Server Error!!",
     });
   }
 });
+
+
+
+import { calculateOrderPreview } from "../controller/order.controller.js";
+
+
+// You can use orderMiddleware here or not,
+// depending on whether preview requires login / customer cookie.
+router.post("/preview-order", async (req: Request, res: Response) => {
+  // Validate body with same Zod schema
+  const { success, error, data } = placeOrderSchema.safeParse(req.body);
+
+  if (!success) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid input!!",
+      error: error.flatten(),
+    });
+  }
+
+  try {
+    const { items, discountType, discountValue } = data;
+
+    // Use shared calculation helper
+    const summary = await calculateOrderPreview({
+      items: items.map((i) => ({
+        feedProductId: i.feedProductId, // make sure your Zod schema uses `feedProductId`
+        quantity: i.quantity,
+      })),
+      discountType: discountType ?? null,
+      discountValue: discountValue ?? 0,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Order preview generated successfully",
+      data: summary,
+    });
+  } catch (err: any) {
+    console.error("Preview Error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error!!",
+      error: err.message,
+    });
+  }
+});
+
 
 export default router;

@@ -41,6 +41,8 @@ export const createFeedProduct = async ({
   });
 };
 
+
+
 export const existingFeedProduct = async ({
   name,
   animalType,
@@ -54,6 +56,15 @@ export const existingFeedProduct = async ({
     },
   });
 };
+
+export async function createInitialFinishedStock(feedProductId: string, quantityAvailable: number) {
+  return await prisma.finishedFeedStock.create({
+    data: {
+      feedProductId,
+      quantityAvailable
+    },
+  });
+}
 
 
 export const updateFeedUnitSize = async (id: string, unitSize: number) => {

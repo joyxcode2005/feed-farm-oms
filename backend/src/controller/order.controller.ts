@@ -1,5 +1,6 @@
 import { string } from "zod";
 import { prisma } from "../config/prisma.js";
+import type { DiscountType } from "@prisma/client";
 
 export const checkExistingCustomer = async ({
   name,
@@ -147,3 +148,90 @@ export async function updateFinishedStock(
     },
   });
 }
+
+// order.controller.ts (or service file)
+
+
+
+type PlaceOrderItemInput = {
+  feedProductId: string;
+  quantity: number;
+};
+
+type PlaceOrderCalcInput = {
+  items: PlaceOrderItemInput[];
+  discountType?: DiscountType | null;
+  discountValue?: number;
+};
+
+export async function calculateOrderPreview({
+  items,
+  discountType,
+  discountValue,
+}: PlaceOrderCalcInput) {
+  // 1. Fetch price data
+  const feedProductIds = items.map((i) => i.feedProductId);
+
+  const feedProducts = await prisma.feedProduct.findMany({
+    where: { id: { in: feedProductIds } },
+    select: {
+      id: true,
+      name: true,
+      pricePerUnit: true,
+    },
+  });
+
+  if (feedProducts.length !== items.length) {
+    throw new Error("One or more feedProductId are invalid");
+  }
+
+  const priceMap = new Map(feedProducts.map((p) => [p.id, p.pricePerUnit]));
+  const nameMap = new Map(feedProducts.map((p) => [p.id, p.name]));
+
+  let totalAmount = 0;
+
+  const detailedItems = items.map((item) => {
+    const price = priceMap.get(item.feedProductId);
+
+    if (!price) {
+      throw new Error(`Invalid feedProductId: ${item.feedProductId}`);
+    }
+
+    if (item.quantity <= 0) {
+      throw new Error(`Invalid quantity for product ${item.feedProductId}`);
+    }
+
+    const subtotal = price * item.quantity;
+    totalAmount += subtotal;
+
+    return {
+      feedProductId: item.feedProductId,
+      name: nameMap.get(item.feedProductId) || "",
+      quantity: item.quantity,
+      pricePerUnit: price,
+      subtotal,
+    };
+  });
+
+  // discount
+  let finalAmount = totalAmount;
+
+  if (discountType && discountValue) {
+    if (discountType === "FLAT") {
+      finalAmount -= discountValue;
+    } else if (discountType === "PERCENTAGE") {
+      finalAmount -= totalAmount * (discountValue / 100);
+    }
+  }
+
+  if (finalAmount < 0) finalAmount = 0;
+
+  return {
+    items: detailedItems,
+    totalAmount,
+    discountType: discountType ?? null,
+    discountValue: discountValue ?? 0,
+    finalAmount,
+  };
+}
+
