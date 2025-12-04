@@ -1,10 +1,12 @@
 import { Router, type Request, type Response } from "express";
-import { feedProductSchema } from "../config/schema.js";
+import { feedProductSchema, rawMaterialSchema } from "../config/schema.js";
 import {
   createFeedProduct,
   createInitialFinishedStock,
   createInitialFinishedStockwithInitailStock,
+  createRawMaterial,
   existingFeedProduct,
+  findExistingRawMaterial,
   getAllFeedProduct,
   updateFeedUnitSize,
 } from "../controller/feed.controller.js";
@@ -132,6 +134,7 @@ router.patch("/update/:id", async (req: Request, res: Response) => {
   }
 });
 
+// Route to fetch all the feeds data
 router.get("/bulk", async (req: Request, res: Response) => {
   try {
     const feedProducts = await getAllFeedProduct();
@@ -151,6 +154,45 @@ router.get("/bulk", async (req: Request, res: Response) => {
       success: false,
       message: "Internal Server Error",
     });
+  }
+});
+
+// Route to add raw feed data
+
+router.post("/add-raw-materials", async (req: Request, res: Response) => {
+  try {
+    // Parse the data from req body correctly using zod
+    const { success, error, data } = rawMaterialSchema.safeParse(req.body);
+
+    if (!success) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: error.issues,
+      });
+    }
+
+    const { name, unit } = data;
+
+    // Check if already exists
+    const existing = await findExistingRawMaterial(name);
+
+    if (existing) {
+      return res.status(409).json({
+        message: "Raw material already exists with this name",
+      });
+    }
+
+    const rawMaterial = await createRawMaterial(name, unit);
+
+    return res.status(201).json({
+      message: "Raw material added successfully",
+      rawMaterial,
+    });
+
+    
+  } catch (error) {
+    console.error("Add Raw Material Error:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 });
 

@@ -1,4 +1,3 @@
-import { string } from "zod";
 import { prisma } from "../config/prisma.js";
 import type { DiscountType, OrderStatus } from "@prisma/client";
 
@@ -149,9 +148,27 @@ export async function updateFinishedStock(
   });
 }
 
-// order.controller.ts (or service file)
+export async function findExistingOrder(orderId: string) {
+  return await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { items: true },
+  });
+}
 
-
+export async function createFinishedFeedStockTxn(
+  feedProductId: string,
+  quantity: number,
+  existing_id: string
+) {
+  return await prisma.finishedFeedStockTransaction.create({
+    data: {
+      feedProductId: feedProductId,
+      type: "PRODUCTION_IN",
+      quantity: quantity,
+      orderId: existing_id,
+    },
+  });
+}
 
 type PlaceOrderItemInput = {
   feedProductId: string;
@@ -234,7 +251,6 @@ export async function calculateOrderPreview({
     finalAmount,
   };
 }
-
 
 //Update order STATUS
 export async function updateOrderStatus(orderId: string, status: OrderStatus) {

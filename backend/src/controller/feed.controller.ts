@@ -109,3 +109,20 @@ export const getAllFeedProduct = async () => {
     },
   });
 };
+
+export async function findExistingRawMaterial(name: string) {
+  return await prisma.rawMaterial.findFirst({
+    where: {
+      name,
+    },
+  });
+}
+
+export async function createRawMaterial(name: string, unit: string) {
+  return await prisma.rawMaterial.create({
+    data: {
+      name,
+      unit,
+    },
+  });
+}

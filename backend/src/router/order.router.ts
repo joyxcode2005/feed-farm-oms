@@ -1,16 +1,24 @@
 import { Router, type Request, type Response } from "express";
-import { checkCustomerDataSchema, placeOrderSchema } from "../config/schema.js";
+import {
+  checkCustomerDataSchema,
+  placeOrderSchema,
+  updateOrderStatusSchema,
+} from "../config/schema.js";
 import {
   checkExistingCustomer,
   createFeedStockTxn,
+  createFinishedFeedStockTxn,
   createNewCustomer,
   findExistingFeedStock,
+  findExistingOrder,
   placeOrder,
   updateFinishedStock,
+  updateOrderStatus,
 } from "../controller/order.controller.js";
 import jwt from "jsonwebtoken";
 import { orderMiddleware } from "../middlewares/order.middleware.js";
 import { calculateOrderPreview } from "../controller/order.controller.js";
+import type { OrderStatus } from "@prisma/client";
 
 const router = Router();
 
@@ -244,87 +252,85 @@ router.post("/preview-order", async (req: Request, res: Response) => {
 });
 
 
+// Route to update the order status
+router.put(
+  "/update-order-status/:orderId",
+  async (req: Request, res: Response) => {
+    // Validate input
+    const { success, data, error } = updateOrderStatusSchema.safeParse(
+      req.body
+    );
 
-import { updateOrderStatusSchema } from "../config/schema.js";
-import { updateOrderStatus } from "../controller/order.controller.js";
-import { prisma } from "../config/prisma.js";
-import type { OrderStatus } from "@prisma/client";
-
-router.put("/update-order-status/:orderId", async (req: Request, res: Response) => {
-  // Validate input
-  const { success, data, error } = updateOrderStatusSchema.safeParse(req.body);
-
-  if (!success) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid order status",
-      error: error.flatten(),
-    });
-  }
-
-  const { orderId } = req.params;
-  if (!orderId) {
-    return res.status(404).json({
-      success:false,
-      message: "Order ID not found!!",
-    })
-  }
-
-  try {
-    // Fetch existing order
-    const existing = await prisma.order.findUnique({
-      where: { id: orderId },
-      include: { items: true },
-    });
-
-    if (!existing) {
-      return res.status(404).json({
+    if (!success) {
+      return res.status(400).json({
         success: false,
-        message: "Order not found",
+        message: "Invalid order status",
+        error: error.flatten(),
       });
     }
 
-    // --- OPTIONAL LOGIC: If status becomes CANCELLED, restore stock ---
-    if (data.orderStatus === "CANCELLED" && existing.orderStatus !== "CANCELLED") {
-      for (const item of existing.items) {
-        await prisma.finishedFeedStock.update({
-          where: { feedProductId: item.feedProductId },
-          data: {
-            quantityAvailable: { increment: item.quantity },
-          },
-        });
-
-        await prisma.finishedFeedStockTransaction.create({
-          data: {
-            feedProductId: item.feedProductId,
-            type: "PRODUCTION_IN",
-            quantity: item.quantity,
-            orderId: existing.id,
-          },
-        });
-      }
+    const { orderId } = req.params;
+    if (!orderId) {
+      return res.status(404).json({
+        success: false,
+        message: "Order ID not found!!",
+      });
     }
 
-    // --- Update status ---
-    const updated = await updateOrderStatus(orderId, data.orderStatus as OrderStatus);
+    try {
+      // Fetch existing order
+      const existing = await findExistingOrder(orderId);
 
+      if (!existing) {
+        return res.status(404).json({
+          success: false,
+          message: "Order not found",
+        });
+      }
 
-    return res.status(200).json({
-      success: true,
-      message: "Order status updated successfully!",
-      data: updated,
-    });
+      // --- OPTIONAL LOGIC: If status becomes CANCELLED, restore stock ---
+      if (
+        data.orderStatus === "CANCELLED" &&
+        existing.orderStatus !== "CANCELLED"
+      ) {
+        for (const item of existing.items) {
+          // await prisma.finishedFeedStock.update({
+          //   where: { feedProductId: item.feedProductId },
+          //   data: {
+          //     quantityAvailable: { increment: item.quantity },
+          //   },
+          // });
 
-  } catch (err: any) {
-    console.error("Update Status Error:", err);
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error!!",
-      error: err.message,
-    });
+          await updateFinishedStock(item.feedProductId, item.quantity, "IN");
+
+          await createFinishedFeedStockTxn(
+            item.feedProductId,
+            item.quantity,
+            existing.id
+          );
+        }
+      }
+
+      // --- Update status ---
+      const updated = await updateOrderStatus(
+        orderId,
+        data.orderStatus as OrderStatus
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Order status updated successfully!",
+        data: updated,
+      });
+    } catch (err: any) {
+      console.error("Update Status Error:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Internal Server Error!!",
+        error: err.message,
+      });
+    }
   }
-});
-
-
+);
 
 export default router;
