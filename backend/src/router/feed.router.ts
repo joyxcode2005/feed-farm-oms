@@ -3,6 +3,7 @@ import { feedProductSchema } from "../config/schema.js";
 import {
   createFeedProduct,
   createInitialFinishedStock,
+  createInitialFinishedStockwithInitailStock,
   existingFeedProduct,
   getAllFeedProduct,
   updateFeedUnitSize,
@@ -11,7 +12,7 @@ import {
 const router = Router();
 
 // create feedProduct
-router.post("/create-feed", async (req: Request, res: Response) => {
+router.post("/add-finished-feed", async (req: Request, res: Response) => {
   const { success, error, data } = feedProductSchema.safeParse(req.body);
 
   if (!success)
@@ -22,7 +23,15 @@ router.post("/create-feed", async (req: Request, res: Response) => {
     });
 
   try {
-    const { animalType, feedType, name, unit, unitSize, pricePerUnit } = data;
+    const {
+      animalType,
+      feedType,
+      name,
+      unit,
+      unitSize,
+      pricePerUnit,
+      initalStock,
+    } = data;
 
     const existingProduct = await existingFeedProduct({
       name,
@@ -51,8 +60,14 @@ router.post("/create-feed", async (req: Request, res: Response) => {
         message: "Failed to create product!!",
       });
 
-      await createInitialFinishedStock(feedProduct.id, feedProduct.unitSize);
+    await createInitialFinishedStock(feedProduct.id, initalStock);
 
+    if (initalStock > 0) {
+      await createInitialFinishedStockwithInitailStock(
+        feedProduct.id,
+        initalStock
+      );
+    }
 
     return res.status(201).json({
       success: true,
@@ -138,7 +153,5 @@ router.get("/bulk", async (req: Request, res: Response) => {
     });
   }
 });
-
-
 
 export default router;

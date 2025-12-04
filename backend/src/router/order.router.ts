@@ -11,7 +11,7 @@ import {
 } from "../controller/order.controller.js";
 import jwt from "jsonwebtoken";
 import { orderMiddleware } from "../middlewares/order.middleware.js";
-
+import { calculateOrderPreview } from "../controller/order.controller.js";
 
 const router = Router();
 
@@ -86,7 +86,7 @@ router.post("/check-customer-data", async (req: Request, res: Response) => {
       message: "Customer data added succesfully!!!",
     });
   } catch (error) {
-    console.log(error)
+    console.log(error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error!!",
@@ -131,42 +131,39 @@ router.post("/place-order", async (req: Request, res: Response) => {
         discountValue: discountValue ?? 0,
       });
 
-      const cleanedOrderItems = summary.items.map(i => ({
-  feedProductId: i.feedProductId,
-  quantity: i.quantity,
-  pricePerUnit: i.pricePerUnit,
-  subtotal: i.subtotal,
-}));
+      const cleanedOrderItems = summary.items.map((i) => ({
+        feedProductId: i.feedProductId,
+        quantity: i.quantity,
+        pricePerUnit: i.pricePerUnit,
+        subtotal: i.subtotal,
+      }));
 
-const totalAmount = summary.totalAmount;
-const finalAmount = summary.finalAmount;
-
+      const totalAmount = summary.totalAmount;
+      const finalAmount = summary.finalAmount;
 
       // ---- CREATE ORDER ----
       const order = await placeOrder(
-  customerId,
-  adminUserId,
-  paymentMethod,
-  discountType ?? null,
-  discountValue || 0,
-  totalAmount,
-  finalAmount,
-  deliveryDate ?? null,
-  cleanedOrderItems
-);
-
+        customerId,
+        adminUserId,
+        paymentMethod,
+        discountType ?? null,
+        discountValue || 0,
+        totalAmount,
+        finalAmount,
+        deliveryDate ?? null,
+        cleanedOrderItems
+      );
 
       // ---- STOCK HANDLING ----
       for (const item of order.items) {
         const stock = await findExistingFeedStock(item.feedProductId);
-
+        console.log("Stock: ", stock);
         if (!stock || stock.quantityAvailable < item.quantity) {
           return res.status(400).json({
             success: false,
             message: `Not enough stock for product ${item.feedProductId}`,
           });
         }
-
 
         await createFeedStockTxn(
           item.feedProductId,
@@ -175,7 +172,12 @@ const finalAmount = summary.finalAmount;
           order.id
         );
 
-        await updateFinishedStock(item.feedProductId, item.quantity);
+        const response = await updateFinishedStock(
+          item.feedProductId,
+          item.quantity
+        );
+
+        console.log("Finished feed: ", response);
       }
 
       return res.status(200).json({
@@ -200,13 +202,7 @@ const finalAmount = summary.finalAmount;
   }
 });
 
-
-
-import { calculateOrderPreview } from "../controller/order.controller.js";
-
-
-// You can use orderMiddleware here or not,
-// depending on whether preview requires login / customer cookie.
+// Route to get the preview , total of the order details
 router.post("/preview-order", async (req: Request, res: Response) => {
   // Validate body with same Zod schema
   const { success, error, data } = placeOrderSchema.safeParse(req.body);
@@ -247,6 +243,5 @@ router.post("/preview-order", async (req: Request, res: Response) => {
     });
   }
 });
-
 
 export default router;

@@ -15,7 +15,10 @@ export enum FeedType {
   LACTATING = "LACTATING",
 }
 
-export type CreateFeedProductSchema = z.infer<typeof feedProductSchema>;
+export type CreateFeedProductSchema = Omit<
+  z.infer<typeof feedProductSchema>,
+  "initalStock"
+>;
 export type ExistingFeedProductSchema = Pick<
   CreateFeedProductSchema,
   "name" | "animalType" | "feedType"
@@ -41,8 +44,6 @@ export const createFeedProduct = async ({
   });
 };
 
-
-
 export const existingFeedProduct = async ({
   name,
   animalType,
@@ -57,37 +58,54 @@ export const existingFeedProduct = async ({
   });
 };
 
-export async function createInitialFinishedStock(feedProductId: string, quantityAvailable: number) {
+export async function createInitialFinishedStock(
+  feedProductId: string,
+  quantityAvailable: number
+) {
   return await prisma.finishedFeedStock.create({
     data: {
       feedProductId,
-      quantityAvailable
+      quantityAvailable,
     },
   });
 }
 
+export async function createInitialFinishedStockwithInitailStock(
+  feedProductId: string,
+  initialStock: number
+) {
+  return await prisma.finishedFeedStockTransaction.create({
+    data: {
+      feedProductId: feedProductId,
+      type: "PRODUCTION_IN",
+      quantity: initialStock,
+      productionBatchId: null,
+    },
+  });
+}
 
 export const updateFeedUnitSize = async (id: string, unitSize: number) => {
   try {
     const updated = await prisma.feedProduct.update({
-      where: { id},
+      where: { id },
       data: { unitSize },
     });
-    return updated;  } catch (err) {
+    return updated;
+  } catch (err) {
     return null; // order not found OR prisma error
   }
 };
 
 export const getAllFeedProduct = async () => {
   return await prisma.feedProduct.findMany({
-    select : {
-        id: true,
-        animalType: true,
-        feedType: true,
-        name: true,
-        unit: true,
-        unitSize: true,
-        pricePerUnit: true,
-    }
-  })
-}
+    select: {
+      id: true,
+      animalType: true,
+      feedType: true,
+      name: true,
+      unit: true,
+      unitSize: true,
+      pricePerUnit: true,
+    },
+  });
+};

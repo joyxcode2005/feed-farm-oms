@@ -13,6 +13,7 @@ export const feedProductSchema = z.object({
   unit: z.string().min(1),
   unitSize: z.number().int().positive(),
   pricePerUnit: z.number().positive(),
+  initalStock: z.number().nonnegative().default(0),
 });
 
 export const checkCustomerDataSchema = z.object({
