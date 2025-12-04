@@ -101,10 +101,8 @@ router.post("/check-customer-data", async (req: Request, res: Response) => {
   }
 });
 
-router.use(orderMiddleware);
-
 // Admin can create an order
-router.post("/place-order", async (req: Request, res: Response) => {
+router.post("/place-order", orderMiddleware,  async (req: Request, res: Response) => {
   try {
     const customerId = (req as any).customerId.id;
     const adminUserId = (req as any).admin.id;
