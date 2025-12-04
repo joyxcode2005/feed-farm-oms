@@ -252,6 +252,7 @@ router.post("/preview-order", async (req: Request, res: Response) => {
 import { updateOrderStatusSchema } from "../config/schema.js";
 import { updateOrderStatus } from "../controller/order.controller.js";
 import { prisma } from "../config/prisma.js";
+import type { OrderStatus } from "@prisma/client";
 
 router.put("/update-order-status/:orderId", async (req: Request, res: Response) => {
   // Validate input
@@ -300,7 +301,7 @@ router.put("/update-order-status/:orderId", async (req: Request, res: Response) 
         await prisma.finishedFeedStockTransaction.create({
           data: {
             feedProductId: item.feedProductId,
-            type: "RESTOCK",
+            type: "PRODUCTION_IN",
             quantity: item.quantity,
             orderId: existing.id,
           },
@@ -309,7 +310,8 @@ router.put("/update-order-status/:orderId", async (req: Request, res: Response) 
     }
 
     // --- Update status ---
-    const updated = await updateOrderStatus(orderId, data.orderStatus);
+    const updated = await updateOrderStatus(orderId, data.orderStatus as OrderStatus);
+
 
     return res.status(200).json({
       success: true,
