@@ -1,6 +1,6 @@
 import { string } from "zod";
 import { prisma } from "../config/prisma.js";
-import type { DiscountType } from "@prisma/client";
+import type { DiscountType, OrderStatus } from "@prisma/client";
 
 export const checkExistingCustomer = async ({
   name,
@@ -235,3 +235,12 @@ export async function calculateOrderPreview({
   };
 }
 
+
+//Update order STATUS
+export async function updateOrderStatus(orderId: string, status: OrderStatus) {
+  return prisma.order.update({
+    where: { id: orderId },
+    data: { orderStatus: status },
+    include: { items: true },
+  });
+}

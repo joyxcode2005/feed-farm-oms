@@ -35,3 +35,8 @@ export const placeOrderSchema = z.object({
     .array(orderItemSchema)
     .min(1, "Order must include at least one item"),
 });
+
+
+export const updateOrderStatusSchema = z.object({
+  orderStatus: z.enum(["PENDING", "CONFIRMED", "DISPATCHED", "DELIVERED", "CANCELLED"]),
+});

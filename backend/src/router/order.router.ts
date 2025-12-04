@@ -4,7 +4,6 @@ import {
   checkExistingCustomer,
   createFeedStockTxn,
   createNewCustomer,
-  fetchAllfeedProducts,
   findExistingFeedStock,
   placeOrder,
   updateFinishedStock,
@@ -247,6 +246,87 @@ router.post("/preview-order", async (req: Request, res: Response) => {
     });
   }
 });
+
+
+
+import { updateOrderStatusSchema } from "../config/schema.js";
+import { updateOrderStatus } from "../controller/order.controller.js";
+import { prisma } from "../config/prisma.js";
+
+router.put("/update-order-status/:orderId", async (req: Request, res: Response) => {
+  // Validate input
+  const { success, data, error } = updateOrderStatusSchema.safeParse(req.body);
+
+  if (!success) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid order status",
+      error: error.flatten(),
+    });
+  }
+
+  const { orderId } = req.params;
+  if (!orderId) {
+    return res.status(404).json({
+      success:false,
+      message: "Order ID not found!!",
+    })
+  }
+
+  try {
+    // Fetch existing order
+    const existing = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: true },
+    });
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    // --- OPTIONAL LOGIC: If status becomes CANCELLED, restore stock ---
+    if (data.orderStatus === "CANCELLED" && existing.orderStatus !== "CANCELLED") {
+      for (const item of existing.items) {
+        await prisma.finishedFeedStock.update({
+          where: { feedProductId: item.feedProductId },
+          data: {
+            quantityAvailable: { increment: item.quantity },
+          },
+        });
+
+        await prisma.finishedFeedStockTransaction.create({
+          data: {
+            feedProductId: item.feedProductId,
+            type: "RESTOCK",
+            quantity: item.quantity,
+            orderId: existing.id,
+          },
+        });
+      }
+    }
+
+    // --- Update status ---
+    const updated = await updateOrderStatus(orderId, data.orderStatus);
+
+    return res.status(200).json({
+      success: true,
+      message: "Order status updated successfully!",
+      data: updated,
+    });
+
+  } catch (err: any) {
+    console.error("Update Status Error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error!!",
+      error: err.message,
+    });
+  }
+});
+
 
 
 export default router;
